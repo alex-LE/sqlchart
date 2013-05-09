@@ -1,0 +1,277 @@
+<html>
+	<head>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<link href="css/bootstrap.min.css" rel="stylesheet" media="screen">
+		<script type="text/php" src="php/Database.base.php"></script>
+		<script type="text/php" src="php/MySQL.php"></script>
+		<script type="text/php" src="php/PostgreSQL.php"></script>
+		<script type="text/php" src="process.php"></script>
+		<style type="text/css">
+
+			body {
+				padding: 10px;
+			}
+
+			#console {
+				height:70px;
+				width: 950px;
+				border: 1px solid #333;
+			}
+
+				#console span {
+					display: block;
+				}
+
+			#sql {
+				width:650px;
+				height: 220px;
+			}
+
+			select, textarea, input[type="text"], input[type="password"], input[type="datetime"], input[type="datetime-local"], input[type="date"], input[type="month"], input[type="time"], input[type="week"], input[type="number"], input[type="email"], input[type="url"], input[type="search"], input[type="tel"], input[type="color"], .uneditable-input {
+				min-height:26px;
+			}
+
+			#resultsarea {
+				height:330px;
+				width: 950px;
+			}
+
+			#tab_query_result .table {
+				font-size: 10px;
+			}
+
+			select.btn-mini {
+				height: auto;
+				line-height: 14px;
+			}
+
+			#tab_query_result label {
+				font-size: 10px;
+			}
+
+		</style>
+	</head>
+	<body>
+		<form>
+		<div class="row-fluid">
+			<div class="span8">
+				<label for="sql">SQL Query:</label>
+				<textarea id="sql" name="sql"></textarea>
+				<br/>
+				<input type="button" class="btn btn-primary" value="run query" id="runBtn" />
+			</div>
+			<div class="span4">
+				<label for="dbtype">DB Type:</label>
+				<select id="dbtype" name="dbtype">
+					<option value="mysql" selected="selected">MySQL</option>
+					<option value="postgres">PostgreSQL</option>
+				</select>
+				<label for="dbuser">DB User:</label>
+				<input type="text" id="dbuser" name="dbuser" value="" />
+				<label for="dbpass">DB Password:</label>
+				<input type="password" id="dbpass" name="dbpass" value="" />
+				<label for="dbhost">DB Host:</label>
+				<input type="text" id="dbhost" name="dbhost" value="" />
+				<label for="dbname">DB Name:</label>
+				<input type="text" id="dbname" name="dbname" value="" />
+			</div>
+		</div>
+		</form>
+
+		<div class="row-fluid" id="resultsarea">
+			<div class="span12">
+				<ul class="nav nav-tabs" id="resulttabs">
+					<li class="active">
+						<a href="#tab_query_result" data-toggle="tab" id="table_tab_lnk">Query Result</a>
+
+					</li>
+					<li>
+						<a href="#tab_chart" data-toggle="tab" id="chart_tab_lnk">Chart</a>
+
+					</li>
+				</ul>
+
+				<div class="tab-content">
+					<div class="tab-pane active" id="tab_query_result"></div>
+					<div class="tab-pane" id="tab_chart">
+						<div id="container" style="width:100%; height:300px;"></div>
+					</div>
+				</div>
+
+			</div>
+		</div>
+
+		<div class="row-fluid">
+			<div class="span12">
+				<fieldset>
+					<legend>Console:</legend>
+					<div id="console" style=""></div>
+				</fieldset>
+			</div>
+		</div>
+
+
+
+		<script src="js/jquery-1.9.1.min.js"></script>
+		<script src="js/bootstrap.min.js"></script>
+		<script src="js/highcharts.js"></script>
+
+		<script type="text/javascript">
+			var global_data = [];
+			var global_exec_path = Ti.API.Application.getExecutablePath();
+			var cols = {};
+			var chart = null;
+
+			$(function() {
+				$('#resulttabs a').click(function (e) {
+					e.preventDefault();
+					$(this).tab('show');
+				});
+
+				$('a[data-toggle="tab"]').on('shown', function (e) {
+					if($(e.target).attr('id') == 'chart_tab_lnk') {
+						e.preventDefault();
+						showChart();
+					}
+				});
+
+				$('#runBtn').click(function() {
+					//logMessage('button clicked');
+					$('#tab_query_result').html('');
+					$('#tab_chart').html('<div id="container" style="width:100%; height:400px;"></div>');
+					global_data = jQuery.parseJSON(runQuery());
+					showTable();
+					//showChart();
+				});
+			});
+
+			function showTable() {
+				var head_processed = false;
+
+				var resulttable = '<table class="table table-bordered table-condensed">';
+				resulttable += '<thead>';
+
+				$.each(global_data, function(key, value) {
+					if(!head_processed) {
+						resulttable += '<tr>';
+						var i = 0;
+						$.each(value, function(colname, value) {
+							resulttable += '<th class="col' + i + '">' + colname + '</th>';
+							var col_item = {
+								index: i,
+								caption: colname,
+								isint: true
+							};
+							cols[colname] = col_item;
+							i++;
+						});
+
+						resulttable += '</tr></thead><tbody>';
+						head_processed = true;
+					} else {
+						resulttable += '<tr>';
+						$.each(value, function(subkey, item) {
+							cols[subkey].isint = cols[subkey].isint && $.isNumeric(item);
+							resulttable += '<td>' + item + '</td>';
+						});
+						resulttable += '</tr>';
+					}
+				});
+				resulttable += '</tbody></table>';
+				$('#tab_query_result').append(resulttable);
+
+				$.each(cols, function(colname, value) {
+					if(value.isint) {
+						$('#tab_query_result th.col' + value.index).append('' +
+								'<form class"form-inline">' +
+								'<label class="radio inline"><input type="radio" class="col_none" name="col_'+value.index+'" value="" checked="checked" />none</label>' +
+								'<label class="radio inline"><input type="radio" class="col_x" name="col_'+value.index+'" value="X" />X</label>' +
+								'<label class="radio inline"><input type="radio" class="col_y" name="col_'+value.index+'" value="Y" />Y</label>' +
+								'</form>');
+					} else {
+						$('#tab_query_result th.col' + value.index).append('' +
+								'<form class"form-inline">' +
+								'<label class="radio inline"><input type="radio" class="col_none" name="col_'+value.index+'" value="" checked="checked" />none</label>' +
+								'<label class="radio inline"><input type="radio" class="col_x" name="col_'+value.index+'" value="X" />X</label>' +
+								'</form>');
+					}
+				});
+			}
+
+			function showChart() {
+
+				if($('.col_x:checked').length == 0 && $('.col_y:checked').length == 0) {
+					alert('Please select at least on column for X and Y!');
+					$('#resulttabs a:first').tab('show');
+					return false;
+				}
+
+				if($('.col_x:checked').length > 1) {
+					alert('Only one column is allow for X!');
+					$('#resulttabs a:first').tab('show');
+					return false;
+				}
+
+				var series = [];
+				$('.col_y:checked').each(function(index) {
+					var col_name = getColNameByIndex($(this).attr('name').replace('col_',''));
+					var new_series = {
+						name: cols[col_name].caption,
+						data: [],
+						type: "line"
+					};
+					series.push(new_series);
+				});
+
+				var x_col_name = getColNameByIndex($('.col_x:checked').first().attr('name').replace('col_',''));
+
+				var categories = [];
+				$.each(global_data, function(key, row) {
+					$.each(row, function(colname, value) {
+						$.each(series, function(index, sitem) {
+							if(sitem.name == colname) {
+								var new_point = {
+									name: row[x_col_name],
+									y: parseInt(value)
+								};
+								sitem.data.push(new_point);
+							}
+						});
+					});
+					categories.push(row[x_col_name]);
+				});
+
+				chart = new Highcharts.Chart({
+					title: {
+						text: ''
+					},
+					chart: {
+						renderTo: 'container',
+						height: 350
+					},
+					xAxis: {
+						type: "category"
+					},
+					series: series
+				});
+
+				return true;
+			}
+
+			function getColNameByIndex(search) {
+				var result = null;
+				$.each(cols, function(colname, value) {
+					if(parseInt(value.index) == parseInt(search)) {
+						result =  colname;
+						return false;
+					}
+				});
+				return result;
+			}
+
+			function jsLog(msg) {
+				$('#console').append('<span>'+msg+'</span>');
+			}
+		</script>
+	</body>
+</html>

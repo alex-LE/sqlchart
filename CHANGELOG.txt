@@ -1,0 +1,3 @@
+Version 0.1a
+
+- first version working with MySQL and PostgreSQL using line chart of highcharts, windows only
