@@ -119,6 +119,7 @@
 		<script type="text/javascript">
 			var global_data = [];
 			var global_exec_path = Ti.API.Application.getExecutablePath();
+            var global_platform = Ti.Platform.getName();
 			var cols = {};
 			var chart = null;
 
@@ -272,6 +273,7 @@
 			function jsLog(msg) {
 				$('#console').append('<span>'+msg+'</span>');
 			}
+
 		</script>
 	</body>
 </html>

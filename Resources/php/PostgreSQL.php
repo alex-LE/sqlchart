@@ -24,9 +24,18 @@ class PostgreSQL extends DBBase {
 	 * @param $query
 	 */
 	public function execute($query) {
-		global $global_exec_path;
-		$command = dirname($global_exec_path).DIRECTORY_SEPARATOR.'Resources'.DIRECTORY_SEPARATOR.'php'.DIRECTORY_SEPARATOR.'psql'.DIRECTORY_SEPARATOR.'win';
-		$command .= DIRECTORY_SEPARATOR.'psql.exe -F "|" -c '.escapeshellarg($query).' -A "'.$this->con_string.'"';
+		global $global_exec_path, $global_platform;
+
+
+        if($global_platform == 'Darwin') {
+            $command = dirname($global_exec_path).DIRECTORY_SEPARATOR.'..'.DIRECTORY_SEPARATOR.'Resources'.DIRECTORY_SEPARATOR.'php'.DIRECTORY_SEPARATOR.'psql'.DIRECTORY_SEPARATOR;
+            $command .= 'osx'.DIRECTORY_SEPARATOR.'bin'.DIRECTORY_SEPARATOR.'psql';
+        } else {
+            $command = dirname($global_exec_path).DIRECTORY_SEPARATOR.'Resources'.DIRECTORY_SEPARATOR.'php'.DIRECTORY_SEPARATOR.'psql'.DIRECTORY_SEPARATOR;
+            $command .= 'win'.DIRECTORY_SEPARATOR.'psql.exe';
+        }
+
+        $command .= ' -F "|" -c '.escapeshellarg($query).' -A "'.$this->con_string.'"';
 		$result = shell_exec($command);
 
 		$out = shell_exec($command." 2> output");
